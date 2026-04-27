@@ -165,6 +165,17 @@ ANTHROPIC_BASE_URL=https://your-api-endpoint.com
 ANTHROPIC_AUTH_TOKEN=your-token-here
 ```
 
+**How do I make host-installed Claude Code skills available to agent containers?**
+
+Set `NANOCLAW_EXTRA_SKILLS_DIR` in `.env` to a directory containing skill subdirectories (each with a `SKILL.md`). The host mounts it at `/app/extra-skills` inside every container and creates the necessary symlinks automatically.
+
+```bash
+# .env
+NANOCLAW_EXTRA_SKILLS_DIR=~/path/to/your/skills
+```
+
+Skills in that directory appear alongside the built-in `container/skills/` set. No duplication — single source of truth on the host.
+
 **How do I debug issues?**
 
 Ask Claude Code. "Why isn't the scheduler running?" "What's in the recent logs?" "Why did this message not get a response?" That's the AI-native approach that underlies NanoClaw.

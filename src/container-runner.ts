@@ -5,6 +5,7 @@
  */
 import { ChildProcess, execSync, spawn } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 import { OneCLI } from '@onecli-sh/sdk';
@@ -320,6 +321,17 @@ function buildMounts(
     mounts.push({ hostPath: skillsSrc, containerPath: '/app/skills', readonly: true });
   }
 
+  // Extra skills from NANOCLAW_EXTRA_SKILLS_DIR — host skill dirs not in the repo.
+  const extraSkillsRaw = process.env.NANOCLAW_EXTRA_SKILLS_DIR;
+  if (extraSkillsRaw) {
+    const extraSkillsHost = extraSkillsRaw.startsWith('~/')
+      ? path.join(os.homedir(), extraSkillsRaw.slice(2))
+      : extraSkillsRaw;
+    if (fs.existsSync(extraSkillsHost)) {
+      mounts.push({ hostPath: extraSkillsHost, containerPath: '/app/extra-skills', readonly: true });
+    }
+  }
+
   // Additional mounts from container config
   if (containerConfig.additionalMounts && containerConfig.additionalMounts.length > 0) {
     const validated = validateAdditionalMounts(containerConfig.additionalMounts, agentGroup.name);
@@ -345,7 +357,7 @@ function syncSkillSymlinks(claudeDir: string, containerConfig: import('./contain
     fs.mkdirSync(skillsDir, { recursive: true });
   }
 
-  // Determine desired skill set
+  // Determine desired skill set from repo container/skills
   const projectRoot = process.cwd();
   const sharedSkillsDir = path.join(projectRoot, 'container', 'skills');
   let desired: string[];
@@ -364,7 +376,27 @@ function syncSkillSymlinks(claudeDir: string, containerConfig: import('./contain
     desired = containerConfig.skills;
   }
 
-  const desiredSet = new Set(desired);
+  // Extra skills from NANOCLAW_EXTRA_SKILLS_DIR — map name → container path
+  const extraSkillsMap = new Map<string, string>();
+  const extraSkillsRaw = process.env.NANOCLAW_EXTRA_SKILLS_DIR;
+  if (extraSkillsRaw) {
+    const extraSkillsHost = extraSkillsRaw.startsWith('~/')
+      ? path.join(os.homedir(), extraSkillsRaw.slice(2))
+      : extraSkillsRaw;
+    if (fs.existsSync(extraSkillsHost)) {
+      for (const e of fs.readdirSync(extraSkillsHost)) {
+        try {
+          if (fs.statSync(path.join(extraSkillsHost, e)).isDirectory()) {
+            extraSkillsMap.set(e, `/app/extra-skills/${e}`);
+          }
+        } catch {
+          // skip unreadable entries
+        }
+      }
+    }
+  }
+
+  const desiredSet = new Set([...desired, ...extraSkillsMap.keys()]);
 
   // Remove symlinks not in the desired set
   for (const entry of fs.readdirSync(skillsDir)) {
@@ -380,7 +412,7 @@ function syncSkillSymlinks(claudeDir: string, containerConfig: import('./contain
     }
   }
 
-  // Create symlinks for desired skills (container path targets)
+  // Create symlinks for repo skills
   for (const skill of desired) {
     const linkPath = path.join(skillsDir, skill);
     let exists = false;
@@ -392,6 +424,21 @@ function syncSkillSymlinks(claudeDir: string, containerConfig: import('./contain
     }
     if (!exists) {
       fs.symlinkSync(`/app/skills/${skill}`, linkPath);
+    }
+  }
+
+  // Create symlinks for extra skills
+  for (const [skill, containerPath] of extraSkillsMap) {
+    const linkPath = path.join(skillsDir, skill);
+    let exists = false;
+    try {
+      fs.lstatSync(linkPath);
+      exists = true;
+    } catch {
+      /* missing */
+    }
+    if (!exists) {
+      fs.symlinkSync(containerPath, linkPath);
     }
   }
 }
