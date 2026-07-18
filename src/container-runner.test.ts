@@ -107,7 +107,7 @@ describe('syncSkillSymlinks blocked-entry warning (structural)', () => {
   // when a non-symlink entry occupies a desired skill path.
   it('warns instead of silently skipping when a real entry blocks a desired skill', () => {
     const src = fs.readFileSync(path.join(process.cwd(), 'src', 'container-runner.ts'), 'utf-8');
-    const createLoop = src.indexOf('// Create symlinks for desired skills');
+    const createLoop = src.indexOf('// Create symlinks for repo skills');
     expect(createLoop).toBeGreaterThan(-1);
     const tail = src.slice(createLoop);
     expect(tail).toMatch(/else if \(!entry\.isSymbolicLink\(\)\)/);
