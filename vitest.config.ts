@@ -3,6 +3,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     setupFiles: ['src/test-setup.ts'],
+    // Raspberry Pi: nested-pnpm and spawn-heavy tests exceed the 5s default.
+    testTimeout: 60000,
     // container/agent-runner tests run under Bun (they depend on bun:sqlite).
     // See container/agent-runner/package.json "test" script.
     // container/*.test.ts: top-level only — container/agent-runner tests run
